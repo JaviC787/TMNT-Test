@@ -83,13 +83,7 @@
       margin-top: 20px;
       transition: transform 0.2s ease;
     }
-
-    #start-btn:hover,
-    #restart-btn:hover,
-    #submit-name-btn:hover {
-      transform: scale(1.1);
-    }
-
+    #start-btn:hover, #restart-btn:hover, #submit-name-btn:hover { transform: scale(1.1); }
     #restart-btn { display: none; }
 
     #leaderboard {
@@ -99,7 +93,6 @@
     }
 
     .hit-effect { animation: tmntHit 0.2s ease; }
-
     @keyframes tmntHit {
       0% { transform: scale(1); }
       50% { transform: scale(0.8); }
@@ -160,41 +153,46 @@
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       // ================================
-      // 🌐 Online Leaderboard (Google Sheets CSV)
-      // gid=0 = first tab. If your leaderboard is another tab, change gid.
-      // This is READ-ONLY. Submitting a score still saves locally in this build.
+      // 🌐 ONLINE LEADERBOARD (Google Sheets GViz JSON)
+      // Assumes Column A = Name, Column B = Score; FIRST tab (gid=0).
+      // Change gid if your leaderboard is on another tab.
       // ================================
-      const SHEET_CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vR_9guh-ahyIiPM9sXOzOEp7ylcdbmimSEYE77siZIKzobv2M4LB7737jxfO4dAWvi3g50KhULvIskR/pub?gid=0&single=true&output=csv";
+      const GVIZ_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwKcPGc3QorE5vPMfgOc83HRw9RCL10qQZNHeAQp8EI2h0Nk1qcd-F1I_46Td-U2YUMpgKQVCFKUNq/gviz/tq?tqx=out:json&tq=select%20A,B%20order%20by%20B%20desc%20limit%205&gid=0";
 
-      function parseCSV(text) {
-        return text
-          .trim()
-          .split(/\r?\n/) // ✅ correct line splitting (Windows + Unix)
-          .map(line => {
-            const [name, score] = line.split(",");
-            return { name: name?.trim(), score: Number(score) };
-          })
-          .filter(r => r.name && r.name.toLowerCase() !== "name" && Number.isFinite(r.score));
+      function parseGvizJSON(text) {
+        // Response looks like: google.visualization.Query.setResponse({...});
+        const start = text.indexOf("{");
+        const end = text.lastIndexOf("}");
+        if (start === -1 || end === -1) throw new Error("Bad GViz payload");
+        return JSON.parse(text.slice(start, end + 1));
       }
 
-      function displayTopScores() {
-        // Fetch and render Top 5 from Google Sheets (read-only)
-        fetch(SHEET_CSV_URL, { cache: "no-store" })
-          .then(res => res.text())
-          .then(csv => {
-            const rows = parseCSV(csv)
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 5);
-            leaderboard.innerHTML =
-              "<h2>Top 5 (Online)</h2>" +
-              rows.map((r, i) => `<p>${i + 1}. ${r.name}: ${r.score}</p>`).join("");
-          })
-          .catch(err => {
-            console.error("Online leaderboard failed:", err);
-            leaderboard.innerHTML =
-              "<h2>Top 5 (Online)</h2><p>Couldn’t load leaderboard.</p>";
-          });
+      async function displayTopScores() {
+        try {
+          const res = await fetch(GVIZ_URL, { cache: "no-store" });
+          const raw = await res.text();
+          const json = parseGvizJSON(raw);
+          const rows = (json.table.rows || [])
+            .map(r => ({
+              name: (r.c?.[0]?.v || "").toString().trim(),   // Col A
+              score: Number(r.c?.[1]?.v),                     // Col B
+            }))
+            .filter(r => r.name && Number.isFinite(r.score));
+
+          if (!rows.length) {
+            leaderboard.innerHTML = "<h2>Top 5 (Online)</h2><p>No scores yet.</p>";
+            return;
+          }
+
+          leaderboard.innerHTML =
+            "<h2>Top 5 (Online)</h2>" +
+            rows.map((r, i) => `<p>${i + 1}. ${r.name}: ${r.score}</p>`).join("");
+        } catch (err) {
+          console.error("Online leaderboard failed:", err);
+          leaderboard.innerHTML =
+            "<h2>Top 5 (Online)</h2><p>Couldn’t load leaderboard.</p>";
+        }
       }
 
       // ================================
@@ -217,10 +215,8 @@
       const turtleImages = ["Donatello.png", "Leonardo.png", "Michaelangelo.png", "Raphael.png"];
       const specialImages = ["Pizza.png", "Shredder.png"]; // 🍕 +2, 🦹 -2
 
-      // Preload all images (optional but helps with flicker)
-      [...turtleImages, ...specialImages].forEach(src => {
-        const im = new Image(); im.src = src;
-      });
+      // Preload to reduce flicker
+      [...turtleImages, ...specialImages].forEach(src => { const im = new Image(); im.src = src; });
 
       // ================================
       // 📊 GAME STATE
@@ -243,7 +239,7 @@
         tmntWrapper.style.left = `${x}px`;
         tmntWrapper.style.top = `${y}px`;
 
-        // 👇 Appearances: 20% special, 80% turtles
+        // 20% special (Pizza/Shredder), 80% turtles
         const isSpecial = Math.random() < 0.2;
         if (isSpecial) {
           currentImage = specialImages[Math.floor(Math.random() * specialImages.length)];
