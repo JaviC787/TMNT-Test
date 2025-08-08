@@ -5,10 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TMNT Click</title>
   <link rel="manifest" href="manifest.json" />
-
-  <!-- ================================
-       🎨 GLOBAL STYLES + UI DESIGN
-       ================================ -->
   <style>
     body {
       margin: 0;
@@ -16,74 +12,35 @@
       background: url('background.jpg') no-repeat center center fixed;
       background-size: cover;
       color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; overflow: hidden; -webkit-tap-highlight-color: transparent;
     }
-
     h1, h2 { margin: 10px; text-shadow: 2px 2px 4px black; }
     h1 img { height: 50px; vertical-align: middle; margin-right: 10px; }
-
-    #tmnt-wrapper {
-      width: 54px;
-      height: 48px;
-      position: absolute;
-      cursor: pointer;
-      display: none;
-    }
-    #tmnt {
-      width: 60px; height: 60px;
-      margin: -6px 0 0 -3px;
-      image-rendering: pixelated;
-      pointer-events: none;
-    }
-
-    .popup {
-      position: absolute; font-weight: bold; font-size: 20px;
-      text-shadow: 1px 1px 3px black;
-      animation: popup-fade 0.6s ease-out forwards;
-      pointer-events: none;
-    }
-    .popup.plus { color: #00ff00; }
-    .popup.minus { color: red; }
-
-    @keyframes popup-fade {
-      0% { opacity: 1; transform: translateY(0); }
-      100% { opacity: 0; transform: translateY(-40px); }
-    }
-
-    /* ================================
-       🟦 BUTTON STYLES WITH HOVER POP
-       ================================ */
+    #tmnt-wrapper { width: 54px; height: 48px; position: absolute; cursor: pointer; display: none; }
+    #tmnt { width: 60px; height: 60px; margin: -6px 0 0 -3px; image-rendering: pixelated; pointer-events: none; }
+    .popup { position: absolute; font-weight: bold; font-size: 20px; text-shadow: 1px 1px 3px black;
+             animation: popup-fade 0.6s ease-out forwards; pointer-events: none; }
+    .popup.plus { color: #00ff00; } .popup.minus { color: red; }
+    @keyframes popup-fade { 0% {opacity:1; transform:translateY(0);} 100% {opacity:0; transform:translateY(-40px);} }
     #start-btn, #restart-btn, #submit-name-btn {
-      padding: 10px 20px; background: #00bfff; color: white;
-      border: none; font-size: 18px; cursor: pointer;
-      border-radius: 8px; margin-top: 20px; transition: transform 0.2s ease;
+      padding: 10px 20px; background: #00bfff; color: white; border: none; font-size: 18px;
+      cursor: pointer; border-radius: 8px; margin-top: 20px; transition: transform 0.2s ease;
     }
     #start-btn:hover, #restart-btn:hover, #submit-name-btn:hover { transform: scale(1.1); }
     #restart-btn { display: none; }
-
     #leaderboard { margin-top: 20px; color: #00ff99; text-shadow: 1px 1px 3px black; }
-
     .hit-effect { animation: tmntHit 0.2s ease; }
     @keyframes tmntHit { 0% {transform: scale(1);} 50% {transform: scale(0.8);} 100% {transform: scale(1);} }
-
     #name-prompt {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: rgba(51,51,51,0.95); padding: 20px; border-radius: 10px;
-      text-align: center; box-shadow: 0 0 10px #000; display: none;
+      background: rgba(51,51,51,0.95); padding: 20px; border-radius: 10px; text-align: center;
+      box-shadow: 0 0 10px #000; display: none;
     }
     #name-input { padding: 10px; font-size: 16px; border-radius: 5px; border: none; margin-top: 10px; width: 200px; }
   </style>
 </head>
 <body>
-  <!-- ================================
-       🐢 GAME HEADER & BUTTONS
-       ================================ -->
   <h1><img src="icon.png" alt="Game Icon"> TMNT Click!</h1>
   <h2 id="score">Score: 0</h2>
   <h2 id="timer">Time: 30</h2>
@@ -104,73 +61,44 @@
     <button id="submit-name-btn">Submit</button>
   </div>
 
-  <!-- ================================
-       ⚙️ MAIN GAME SCRIPT
-       ================================ -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      // ================================
-      // 🌐 ONLINE LEADERBOARD (GViz JSONP — no CORS)
-      // Assumes Column A = Name, Column B = Score; FIRST tab (gid=0).
-      // Change gid=0 if your leaderboard is on another tab.
-      // ================================
-      const GVIZ_BASE =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwKcPGc3QorE5vPMfgOc83HRw9RCL10qQZNHeAQp8EI2h0Nk1qcd-F1I_46Td-U2YUMpgKQVCFKUNq/gviz/tq" +
-        "?tq=" + encodeURIComponent("select A,B order by B desc limit 5") +
-        "&gid=0";
+      // ===== 🔗 YOUR APPS SCRIPT WEB APP URL (replace this) =====
+      const API_URL = "https://script.google.com/macros/s/AKfycbxZBiwu4cyusQJplK1p9Ar7eILGQEjx2PgcZ5bF_c8hkj3y-eABl_zyEGEl8P9F1LOCcA/exec";
 
-      function renderLeaderboard(rows) {
-        const lb = document.getElementById("leaderboard");
-        if (!rows.length) {
-          lb.innerHTML = "<h2>Top 5 (Online)</h2><p>No scores yet.</p>";
-          return;
+      // ===== 🌐 Online leaderboard: GET JSON from Apps Script =====
+      async function displayTopScores() {
+        try {
+          const res = await fetch(API_URL, { cache: "no-store" });
+          const rows = await res.json(); // [{name, score}]
+          const lb = document.getElementById("leaderboard");
+          if (!Array.isArray(rows) || !rows.length) {
+            lb.innerHTML = "<h2>Top 5 (Online)</h2><p>No scores yet.</p>";
+            return;
+          }
+          lb.innerHTML = "<h2>Top 5 (Online)</h2>" +
+            rows.map((r, i) => `<p>${i + 1}. ${r.name}: ${r.score}</p>`).join("");
+        } catch (err) {
+          console.error("Online leaderboard failed:", err);
+          document.getElementById("leaderboard").innerHTML =
+            "<h2>Top 5 (Online)</h2><p>Couldn’t load leaderboard.</p>";
         }
-        lb.innerHTML =
-          "<h2>Top 5 (Online)</h2>" +
-          rows.map((r, i) => `<p>${i + 1}. ${r.name}: ${r.score}</p>`).join("");
       }
 
-      function displayTopScores() {
-        return new Promise((resolve) => {
-          const cb = "TMNT_GVIZ_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
-          const url = GVIZ_BASE + "&tqx=" + encodeURIComponent(`out:json;responseHandler:${cb}`) + "&_=" + Date.now();
-          const s = document.createElement("script");
-
-          window[cb] = (payload) => {
-            try {
-              const rows = (payload.table?.rows || [])
-                .map(r => ({
-                  name: (r.c?.[0]?.v || "").toString().trim(),
-                  score: Number(r.c?.[1]?.v)
-                }))
-                .filter(r => r.name && Number.isFinite(r.score));
-              renderLeaderboard(rows);
-            } catch (e) {
-              console.error("GViz parse error:", e);
-              renderLeaderboard([]);
-            } finally {
-              delete window[cb];
-              s.remove();
-              resolve();
-            }
-          };
-
-          s.onerror = () => {
-            console.error("GViz JSONP load failed");
-            renderLeaderboard([]);
-            delete window[cb];
-            s.remove();
-            resolve();
-          };
-
-          s.src = url;
-          document.body.appendChild(s);
-        });
+      // ===== 📨 Save score online: POST to Apps Script (no preflight) =====
+      async function saveScoreOnline(name, score) {
+        try {
+          await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" }, // simple POST → avoids preflight
+            body: JSON.stringify({ name, score })
+          });
+        } catch (err) {
+          console.error("Saving score failed:", err);
+        }
       }
 
-      // ================================
-      // 🔧 DOM ELEMENTS
-      // ================================
+      // ===== 🔧 DOM =====
       const startBtn = document.getElementById("start-btn");
       const restartBtn = document.getElementById("restart-btn");
       const scoreDisplay = document.getElementById("score");
@@ -182,31 +110,16 @@
       const nameInput = document.getElementById("name-input");
       const submitNameBtn = document.getElementById("submit-name-btn");
 
-      // ================================
-      // 🖼️ IMAGES (Turtles + Specials)
-      // ================================
+      // ===== 🖼️ Images (Turtles + Specials) =====
       const turtleImages = ["Donatello.png", "Leonardo.png", "Michaelangelo.png", "Raphael.png"];
-      const specialImages = [
-        { src: "Pizza.png", points: 2 },
-        { src: "Shredder.png", points: -2 }
-      ];
-      // Preload to reduce flicker
+      const specialImages = [{ src: "Pizza.png", points: 2 }, { src: "Shredder.png", points: -2 }];
       [...turtleImages, ...specialImages.map(s => s.src)].forEach(src => { const im = new Image(); im.src = src; });
 
-      // ================================
-      // 📊 GAME STATE
-      // ================================
-      let turtleIndex = 0;
-      let score = 0;
-      let timeLeft = 30;
-      let gameInterval;
-      let autoMoveInterval;
-      let gameActive = false;
-      let tmntWasTapped = false;
+      // ===== 📊 State =====
+      let turtleIndex = 0, score = 0, timeLeft = 30;
+      let gameInterval, autoMoveInterval, gameActive = false, tmntWasTapped = false;
 
-      // ================================
-      // 🔄 MOVE / SPAWN LOGIC (20% special)
-      // ================================
+      // ===== 🎯 Move / spawn (20% special) =====
       function moveTMNT() {
         const x = Math.random() * (window.innerWidth - 80);
         const y = Math.random() * (window.innerHeight - 80);
@@ -222,53 +135,10 @@
           tmnt.dataset.points = 1;
           tmnt.src = turtleImages[turtleIndex];
         }
-
         tmnt.onerror = () => { tmnt.src = "Donatello.png"; tmnt.dataset.points = 1; };
       }
 
-      // ================================
-      // ✅ HIT HANDLER (+1 / +2 / -2; clamp to 0)
-      // ================================
-      function handleTMNTClick(event) {
-        if (!gameActive) return;
-        const points = parseInt(tmnt.dataset.points || "1", 10);
-        const x = event.clientX || (event.touches && event.touches[0].clientX);
-        const y = event.clientY || (event.touches && event.touches[0].clientY);
-
-        score = Math.max(0, score + points);
-        scoreDisplay.textContent = `Score: ${score}`;
-        tmnt.classList.add("hit-effect");
-        showPopup(x, y, points, points > 0 ? "plus" : "minus");
-        setTimeout(() => tmnt.classList.remove("hit-effect"), 200);
-        moveTMNT();
-      }
-
-      // ================================
-      // 💬 POPUP
-      // ================================
-      function showPopup(x, y, value, type) {
-        const popup = document.createElement("div");
-        popup.className = `popup ${type}`;
-        popup.textContent = value > 0 ? `+${value}` : `${value}`;
-        popup.style.left = `${x}px`;
-        popup.style.top = `${y}px`;
-        document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 600);
-      }
-
-      // ================================
-      // ❌ MISS HANDLER (-1; ignore UI taps/clicks)
-      // ================================
-      function handleMiss(x, y) {
-        if (!gameActive || tmntWasTapped) return;
-        score = Math.max(0, score - 1);
-        scoreDisplay.textContent = `Score: ${score}`;
-        showPopup(x, y, -1, "minus");
-      }
-
-      // ================================
-      // ▶️ START GAME
-      // ================================
+      // ===== ▶️ Start =====
       function startGame() {
         score = 0;
         timeLeft = 30;
@@ -278,7 +148,7 @@
         tmntWrapper.style.display = "block";
         startBtn.style.display = "none";
         restartBtn.style.display = "none";
-        leaderboard.innerHTML = ""; // clear while playing
+        leaderboard.innerHTML = "";
         moveTMNT();
 
         gameInterval = setInterval(() => {
@@ -290,17 +160,47 @@
             tmntWrapper.style.display = "none";
             namePrompt.style.display = "block";
             gameActive = false;
-            // After game, show the online leaderboard again
-            displayTopScores();
+            displayTopScores(); // refresh after game
           }
         }, 1000);
 
         autoMoveInterval = setInterval(moveTMNT, 3000);
       }
 
-      // ================================
-      // 🖱️ / 📱 INPUT EVENTS
-      // ================================
+      // ===== 💬 Popup =====
+      function showPopup(x, y, value, type) {
+        const popup = document.createElement("div");
+        popup.className = `popup ${type}`;
+        popup.textContent = value > 0 ? `+${value}` : `${value}`;
+        popup.style.left = `${x}px`;
+        popup.style.top = `${y}px`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 600);
+      }
+
+      // ===== ✅ Hit (+1 / +2 / -2) =====
+      function handleTMNTClick(event) {
+        if (!gameActive) return;
+        const points = parseInt(tmnt.dataset.points || "1", 10);
+        const x = event.clientX || (event.touches && event.touches[0].clientX);
+        const y = event.clientY || (event.touches && event.touches[0].clientY);
+        score = Math.max(0, score + points);
+        scoreDisplay.textContent = `Score: ${score}`;
+        tmnt.classList.add("hit-effect");
+        showPopup(x, y, points, points > 0 ? "plus" : "minus");
+        setTimeout(() => tmnt.classList.remove("hit-effect"), 200);
+        moveTMNT();
+      }
+
+      // ===== ❌ Miss (-1; ignore UI) =====
+      function handleMiss(x, y) {
+        if (!gameActive || tmntWasTapped) return;
+        score = Math.max(0, score - 1);
+        scoreDisplay.textContent = `Score: ${score}`;
+        showPopup(x, y, -1, "minus");
+      }
+
+      // ===== 🖱️ / 📱 Events =====
       tmntWrapper.addEventListener("click", handleTMNTClick);
       tmntWrapper.addEventListener("touchstart", (e) => {
         e.preventDefault();
@@ -310,47 +210,41 @@
         setTimeout(() => { tmntWasTapped = false; }, 100);
       }, { passive: false });
 
-      // Ignore UI elements; only count true misses
       document.body.addEventListener("click", (e) => {
-        const ignoreClick = e.target.closest("#start-btn, #restart-btn, #submit-name-btn, #name-prompt");
-        if (!gameActive || tmntWasTapped || ignoreClick) return;
+        const ignore = e.target.closest("#start-btn, #restart-btn, #submit-name-btn, #name-prompt");
+        if (!gameActive || tmntWasTapped || ignore) return;
         if (!tmntWrapper.contains(e.target)) handleMiss(e.clientX, e.clientY);
       });
 
       document.body.addEventListener("touchstart", (e) => {
-        const touch = e.touches[0];
-        const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        const ignoreTouch = target.closest("#start-btn, #restart-btn, #submit-name-btn, #name-prompt");
-        if (!gameActive || tmntWasTapped || ignoreTouch) return;
-        if (!tmntWrapper.contains(target)) handleMiss(touch.clientX, touch.clientY);
+        const t = e.touches[0];
+        const target = document.elementFromPoint(t.clientX, t.clientY);
+        const ignore = target.closest("#start-btn, #restart-btn, #submit-name-btn, #name-prompt");
+        if (!gameActive || tmntWasTapped || ignore) return;
+        if (!tmntWrapper.contains(target)) handleMiss(t.clientX, t.clientY);
       }, { passive: false });
 
-      // Buttons
+      // ===== 🎮 Buttons =====
       startBtn.addEventListener("click", startGame);
       restartBtn.addEventListener("click", startGame);
 
-      // ================================
-      // 🧾 NAME SUBMIT (local-only for now)
-      // ================================
-      submitNameBtn.addEventListener("click", () => {
+      // ===== 🧾 Submit name → POST to sheet, then refresh
+      submitNameBtn.addEventListener("click", async () => {
         const name = nameInput.value.trim();
         if (name) {
-          // Local-only placeholder; no write to Google yet
-          console.log(`Pretend saving: ${name} - ${score}`);
+          await saveScoreOnline(name, score);
           namePrompt.style.display = "none";
           nameInput.value = "";
           restartBtn.style.display = "inline-block";
+          // Give Sheets a moment to append, then refresh scoreboard
+          setTimeout(displayTopScores, 800);
         }
       });
 
-      // ================================
-      // 🚀 INITIALIZE ONLINE LEADERBOARD
-      // ================================
+      // ===== 🚀 Load online leaderboard on page load =====
       displayTopScores();
 
-      // ================================
-      // 🧱 SERVICE WORKER (optional PWA)
-      // ================================
+      // ===== 🧱 Service worker (optional PWA) =====
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('service-worker.js')
           .then(reg => console.log('Service worker registered.', reg));
